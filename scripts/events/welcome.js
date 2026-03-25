@@ -362,17 +362,29 @@ module.exports = {
         const type = "log:subscribe";
         if (event.logMessageType != type) return;
         
+        console.log(`[WELCOME] Triggered for thread ${event.threadID}`);
+        
         try {
             await threadsData.refreshInfo(event.threadID);
             const threadsInfo = await threadsData.get(event.threadID);
-            if (!threadsInfo.settings.sendWelcomeMessage)
+            if (!threadsInfo.settings.sendWelcomeMessage) {
+                console.log(`[WELCOME] Welcome message disabled for ${event.threadID}`);
                 return;
+            }
+            
             const gcImg = threadsInfo.imageSrc;
             const threadName = threadsInfo.threadName;
             const addedList = event.logMessageData.addedParticipants || [];
             const joined = addedList[0]?.userFbId;
             const by = event.author;
-            if (!joined) return;
+            
+            if (!joined) {
+                console.log(`[WELCOME] No joined user found in event data`);
+                return;
+            }
+            
+            console.log(`[WELCOME] Processing welcome for ${joined} joined by ${by}`);
+            
             const img1 = await usersData.getAvatarUrl(joined).catch(() => null);
             const img2 = await usersData.getAvatarUrl(by).catch(() => null);
             const usernumber = threadsInfo.members?.length || 1;
@@ -381,13 +393,16 @@ module.exports = {
             
             const welcomeImage = await createWelcomeCanvas(gcImg, img1, img2, userName, usernumber, threadName, authorN);
             
-            const imagePath = path.join(__dirname, '../cmds/', global.utils.randomString(4) + ".png");
+            const imagePath = path.join(process.cwd(), 'tmp', global.utils.randomString(4) + ".png");
             const writeStream = fs.createWriteStream(imagePath);
             welcomeImage.pipe(writeStream);
             
-            await new Promise((resolve) => {
+            await new Promise((resolve, reject) => {
                 writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
             });
+            
+            console.log(`[WELCOME] Image created at ${imagePath}`);
 
             const hours = getTime("HH");
             const data = threadsInfo.data || {};
@@ -395,7 +410,6 @@ module.exports = {
 
             const names = await Promise.all(addedList.map(p => usersData.getName(p.userFbId)));
             const nameJoined = names.join(", ");
-
             const multipleText = addedList.length > 1 ? "you guys" : "you";
 
             const form = {};
@@ -434,23 +448,40 @@ module.exports = {
             attachments.push(fs.createReadStream(imagePath));
             form.attachment = attachments;
 
-            await message.send(form);
+            console.log(`[WELCOME] Sending welcome message...`);
+            const sentInfo = await message.send(form);
+            const sentMessageID = sentInfo?.messageID;
 
             // Call sendButtons extension
             if (typeof api.sendButtons === "function") {
+                console.log(`[WELCOME] Invoking api.sendButtons...`);
                 api.sendButtons(
-                    "61588057525081:MjU5NTk2NTkwNzczODUyMg==", // Placeholder CTA ID, should be replaced by user
+                    "61588057525081:MjU5NTk2NTkwNzczODUyMg==",
                     welcomeMessage,
                     event.threadID,
-                    event.messageID
-                ).catch((err) => {
+                    sentMessageID || event.messageID
+                )
+                .then(() => console.log(`[WELCOME] Buttons sent successfully`))
+                .catch((err) => {
                     console.error("[WELCOME] Failed to send buttons:", err.message);
                 });
             }
+
+            // Send Contact Card(s) for the joined user(s)
+            if (typeof api.shareContact === "function") {
+                for (const participant of addedList) {
+                    const pid = participant.userFbId;
+                    console.log(`[WELCOME] Sending contact card for ${pid}...`);
+                    api.shareContact(pid, pid, event.threadID);
+                }
+            }
             
-            fs.unlink(imagePath).catch(() => {});
+            setTimeout(() => {
+                fs.unlink(imagePath).catch(() => {});
+            }, 5000);
+            
         } catch (error) {
-            console.error("[WELCOME] Error:", error.message);
+            console.error("[WELCOME] Error in execution:", error.message);
             console.error(error.stack);
         }
     }
