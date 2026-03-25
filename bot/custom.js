@@ -4,15 +4,23 @@ module.exports = async function ({ api, threadModel, userModel, dashBoardModel, 
 	// Register custom API extensions
 	if (typeof api.addExternalModule === 'function') {
 		try {
+			// Some FCA versions need the full path or require the module directly
 			api.addExternalModule({
 				sendButtons: require('./extra/sendButtons')
 			});
-			log.info("CUSTOM API", "Successfully registered api.sendButtons");
+			
+			if (typeof api.sendButtons === 'function') {
+				log.info("CUSTOM API", "Successfully registered api.sendButtons");
+				// Also bind to global for easier access as a fallback
+				global.sendButtons = api.sendButtons;
+			} else {
+				log.error("CUSTOM API", "Failed to bind sendButtons to api object.");
+			}
 		} catch (err) {
-			log.error("CUSTOM API", "Failed to register api.sendButtons:", err);
+			log.error("CUSTOM API", "Error during api.addExternalModule:", err);
 		}
 	} else {
-		log.warn("CUSTOM API", "api.addExternalModule is not available. Cannot register sendButtons.");
+		log.warn("CUSTOM API", "api.addExternalModule is not available.");
 	}
 
 	// This is where you can add your custom code to the bot.
