@@ -107,7 +107,7 @@ module.exports = function (defaultFuncs, api, ctx) {
             app_id: "2220391788200892",
             payload: JSON.stringify({
                 tasks: [{
-                    label: 46,
+                    label: "46",
                     payload: JSON.stringify({
                         thread_id: threadID,
                         otrid: otrid,
@@ -115,18 +115,19 @@ module.exports = function (defaultFuncs, api, ctx) {
                         send_type: 1,
                         text: body,
                         reply_to_message_id: messageID,
-                        initiating_source: 0,
+                        initiating_source: 1,
                         call_to_actions: call_to_actions
                     }),
                     queue_name: threadID
                 }],
                 epoch_id: Date.now(),
-                version_id: "72141523485923"
-            })
+                version_id: "6120284488008082"
+            }),
+            type: 3
         };
 
         if (ctx.mqttClient && ctx.mqttClient.connected) {
-            ctx.mqttClient.publish('/ls_publish_content', JSON.stringify(payload), { qos: 1, retain: false });
+            ctx.mqttClient.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
             callback(null, { otrid });
         } else {
             callback(new Error("MQTT client not connected"));
