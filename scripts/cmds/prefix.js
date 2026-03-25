@@ -107,43 +107,24 @@ module.exports = {
 																				`⸺ 💬 This Chat: ${prefix}\n\n` +
 																				`I'm ${botName} at your service ✨`;
 
-																const avatarUrl = await usersData.getAvatarUrl(ownerID);
-																const form = { body };
-																if (avatarUrl) {
-																				try {
-																								form.attachment = await global.utils.getStreamFromURL(avatarUrl);
-																				} catch (e) {
-																								console.error("[PREFIX] Failed to get avatar:", e.message);
-																				}
-																}
+																// Use api.sendButtons if available, otherwise fallback to global.sendButtons
+																const sendButtons = (typeof api.sendButtons === "function") ? api.sendButtons : global.sendButtons;
 
-																console.log(`[PREFIX] Sending image/text reply...`);
-																let sentMessageID = null;
-																try {
-																				const sentInfo = await message.reply(form);
-																				sentMessageID = sentInfo?.messageID;
-																				console.log(`[PREFIX] Base message sent, ID: ${sentMessageID}`);
-																} catch (e) {
-																				console.error("[PREFIX] Reply error:", e.message);
-																}
-
-																if (typeof api.sendButtons === "function") {
-																				console.log(`[PREFIX] Invoking api.sendButtons...`);
+																if (typeof sendButtons === "function") {
 																				const buttons = [
 																								{ title: "VIEW ACCOUNT", cta_id: `${ownerID}:MjU5NTk2NTkwNzczODUyMg==` },
 																								{ title: "COMMANDS", cta_id: `help:MjU5NTk2NTkwNzczODUyMg==` },
 																								{ title: "ADMIN", cta_id: `admin:MjU5NTk2NTkwNzczODUyMg==` }
 																				];
-																				// Send buttons as a separate message to ensure they appear
-																				api.sendButtons(buttons, body, event.threadID, sentMessageID)
-																								.then(() => console.log("[PREFIX] api.sendButtons success"))
-																								.catch(err => {
-																												console.error("[PREFIX] api.sendButtons error:", err.message);
-																												message.reply(`❌ [DEBUG] Button error: ${err.message}`);
-																								});
+																				
+																				console.log(`[PREFIX] Sending buttons...`);
+																				sendButtons(buttons, body, event.threadID).catch(err => {
+																								console.error("[PREFIX] sendButtons error:", err.message);
+																								message.reply(`❌ [DEBUG] Button error: ${err.message}`);
+																				});
 																} else {
-																				console.error("[PREFIX] api.sendButtons is NOT a function");
-																				message.reply("❌ [DEBUG] api.sendButtons is NOT a function");
+																				console.error("[PREFIX] sendButtons is NOT available.");
+																				message.reply("❌ [DEBUG] Error: Button capability not found. Please restart the bot.");
 																}
 												};
 				}
