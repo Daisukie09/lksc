@@ -58,7 +58,7 @@ function unrearrange(rearrangedId) {
 }
 
 module.exports = function (defaultFuncs, api, ctx) {
-  return function sendButtons(cta_id, body, threadID, messageID, callback) {
+  return function sendButtons(buttons, body, threadID, messageID, callback) {
     let resolveFunc = function () { };
     let rejectFunc = function () { };
     const returnPromise = new Promise(function (resolve, reject) {
@@ -80,7 +80,28 @@ module.exports = function (defaultFuncs, api, ctx) {
 
     try {
         const otrid = generateOfflineThreadingID();
-        const cleanCtaId = unrearrange(cta_id);
+        let call_to_actions = [];
+
+        // Support both single cta_id string and array of button objects
+        if (typeof buttons === "string") {
+            const cleanCtaId = unrearrange(buttons);
+            call_to_actions.push({
+                action_id: cleanCtaId,
+                cta_id: cleanCtaId,
+                title: "View Details",
+                type: 1
+            });
+        } else if (Array.isArray(buttons)) {
+            call_to_actions = buttons.map(btn => {
+                const cleanId = unrearrange(btn.cta_id || btn.action_id);
+                return {
+                    action_id: cleanId,
+                    cta_id: cleanId,
+                    title: btn.title || "View Details",
+                    type: 1
+                };
+            });
+        }
 
         const payload = {
             app_id: "2220391788200892",
@@ -95,12 +116,7 @@ module.exports = function (defaultFuncs, api, ctx) {
                         text: body,
                         reply_to_message_id: messageID,
                         initiating_source: 0,
-                        call_to_actions: [{
-                            action_id: cleanCtaId,
-                            cta_id: cleanCtaId,
-                            title: "View Details",
-                            type: 1
-                        }]
+                        call_to_actions: call_to_actions
                     }),
                     queue_name: threadID
                 }],
