@@ -107,24 +107,18 @@ module.exports = {
 																				`⸺ 💬 This Chat: ${prefix}\n\n` +
 																				`I'm ${botName} at your service ✨`;
 
-																// Use api.sendButtons if available, otherwise fallback to global.sendButtons
-																const sendButtons = (typeof api.sendButtons === "function") ? api.sendButtons : global.sendButtons;
-
-																if (typeof sendButtons === "function") {
+																if (typeof api.sendButtons === "function") {
 																				const buttons = [
 																								{ title: "VIEW ACCOUNT", cta_id: `${ownerID}:MjU5NTk2NTkwNzczODUyMg==` },
 																								{ title: "COMMANDS", cta_id: `help:MjU5NTk2NTkwNzczODUyMg==` },
 																								{ title: "ADMIN", cta_id: `admin:MjU5NTk2NTkwNzczODUyMg==` }
 																				];
 																				
-																				console.log(`[PREFIX] Sending buttons...`);
-																				sendButtons(buttons, body, event.threadID).catch(err => {
+																				api.sendButtons(buttons, body, event.threadID).catch(err => {
 																								console.error("[PREFIX] sendButtons error:", err.message);
-																								message.reply(`❌ [DEBUG] Button error: ${err.message}`);
 																				});
 																} else {
-																				console.error("[PREFIX] sendButtons is NOT available.");
-																				message.reply("❌ [DEBUG] Error: Button capability not found. Please restart the bot.");
+																				message.reply(body);
 																}
 												};
 				}
