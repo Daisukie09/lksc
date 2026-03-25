@@ -1,178 +1,89 @@
-const fs = require('fs');
-const path = require('path');
+const fs = require("fs-extra");
+const path = require("path");
 
 module.exports = {
-	config: {
-		name: "help",
-		version: "2.4.74",
-		role: 0,
-		countDown: 0,
-		author: "ST | Sheikh Tamim",
-		description: "Displays all available commands and their categories.",
-		category: "system"
-	},
+  config: {
+    name: "help",
+    aliases: ["menu", "commands"],
+    version: "5.1.0",
+    author: "VincentSensei",
+    shortDescription: "Show all available commands",
+    longDescription: "Displays a clean and premium-styled categorized list of commands with pagination.",
+    category: "system",
+    guide: "{pn}help [command name | page number]"
+  },
 
-	ST: async ({ api, event, args }) => {
-		const cmdsFolderPath = path.join(__dirname, '.');
-		const files = fs.readdirSync(cmdsFolderPath).filter(f => f.endsWith('.js'));
+  onStart: async function ({ message, args, prefix }) {
+    const allCommands = global.GoatBot.commands;
+    const categories = {};
 
-		const send = async (msg, tid) => {
-			try { return await api.sendMessage(msg, tid); } catch (e) { console.error(e); }
-		};
+    const cleanCategoryName = (text) => {
+      if (!text) return "others";
+      return text
+        .normalize("NFKD")
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toLowerCase();
+    };
 
-		const getCategories = () => {
-			const cats = {};
-			for (const file of files) {
-				try {
-					const cmd = require(path.join(cmdsFolderPath, file));
-					const cat = (cmd.config.category || 'uncategorized').toLowerCase();
-					if (!cats[cat]) cats[cat] = [];
-					cats[cat].push(cmd.config);
-				} catch {}
-			}
-			return cats;
-		};
+    for (const [name, cmd] of allCommands) {
+      const cat = cleanCategoryName(cmd.config.category);
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(cmd.config.name);
+    }
 
-		const catIcon = (name) => ({
-			ai: '🤖', fun: '🎭', games: '🕹️', utility: '⚙️',
-			admin: '🛡️', media: '📽️', music: '🎵', info: '📡',
-			economy: '💸', social: '🌐', moderation: '⚖️',
-			image: '🖼️', tool: '🔩', owner: '👑', config: '🔧',
-			system: '💻', 'box chat': '💬', uncategorized: '📂'
-		}[name.toLowerCase()] || '✦');
+    const sortedCategories = Object.keys(categories).sort();
+    const itemsPerPage = 15;
+    const totalPages = Math.ceil(sortedCategories.length / itemsPerPage);
 
-		try {
-			const categories = getCategories();
-			const catNames = Object.keys(categories).sort();
-			const total = Object.values(categories).reduce((s, c) => s + c.length, 0);
+    // Check if args[0] is a command or a page number
+    if (args[0] && isNaN(args[0])) {
+      const query = args[0].toLowerCase();
+      const cmd = allCommands.get(query) || [...allCommands.values()].find((c) => (c.config.aliases || []).includes(query));
+      
+      if (cmd) {
+        const { name, version, author, guide, category, shortDescription, longDescription, aliases, role } = cmd.config;
+        const desc = typeof longDescription === "string" ? longDescription : longDescription?.en || shortDescription?.en || shortDescription || "No description";
+        const usage = typeof guide === "string" ? guide.replace(/{pn}/g, prefix) : guide?.en?.replace(/{pn}/g, prefix) || `${prefix}${name}`;
+        const requiredRole = role !== undefined ? role : 0;
+        const roleText = requiredRole === 0 ? "𝗨𝘀𝗲𝗿" : requiredRole === 1 ? "𝗚𝗿𝗼𝘂𝗽 𝗔𝗱𝗺𝗶𝗻" : requiredRole === 2 ? "𝗕𝗼𝘁 𝗔𝗱𝗺𝗶𝗻" : "𝗔𝗱𝗺𝗶𝗻";
 
-			const arg = args[0];
+        return message.reply(
+          `✦ 𝗖𝗢𝗠𝗠𝗔𝗡𝗗 𝗜𝗡𝗙𝗢 ✦\n\n` +
+          `⸺ 𝗡𝗮𝗺𝗲: ${name}\n` +
+          `⸺ 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆: ${category || "Uncategorized"}\n` +
+          `⸺ 𝗗𝗲𝘀𝗰𝗿𝗶𝗽𝘁𝗶𝗼𝗻: ${desc}\n` +
+          (aliases?.length ? `⸺ 𝗔𝗹𝗶𝗮𝘀𝗲𝘀: ${aliases.join(", ")}\n` : "") +
+          `⸺ 𝗨𝘀𝗮𝗴𝗲: ${usage}\n` +
+          `⸺ 𝗣𝗲𝗿𝗺𝗶𝘀𝘀𝗶𝗼𝗻: ${roleText}\n` + 
+          `⸺ 𝗔𝘂𝘁𝗵𝗼𝗿: ${author}\n` +
+          `⸺ 𝗩𝗲𝗿𝘀𝗶𝗼𝗻: ${version}`
+        );
+      }
+    }
 
-			// ── !help <cmdname> ─────────────────────────────────────────────
-			if (arg && isNaN(parseInt(arg))) {
-				const target = arg.toLowerCase();
-				const allCmds = files.map(f => {
-					try { return require(path.join(cmdsFolderPath, f)); } catch { return null; }
-				}).filter(Boolean);
+    let page = parseInt(args[0]) || 1;
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
 
-				const found = allCmds.find(c =>
-					c.config.name.toLowerCase() === target ||
-					(c.config.aliases || []).includes(target)
-				);
+    let msg = `✦ 𝗩𝗶𝗻𝗰𝗲𝗻𝘁𝗦𝗲𝗻𝘀𝗲𝗶 𝗛𝗲𝗹𝗽 𝗠𝗲𝗻𝘂 (𝗣𝗮𝗴𝗲 ${page}/${totalPages}) ✦\n\n`;
+    
+    const start = (page - 1) * itemsPerPage;
+    const end = start + itemsPerPage;
+    const pageCategories = sortedCategories.slice(start, end);
 
-				if (found) {
-					await send(buildCard(found.config), event.threadID);
-				} else {
-					await send(`✦ Command "${target}" not found.\n  Use !help to see all categories.`, event.threadID);
-				}
-				return;
-			}
+    for (const cat of pageCategories) {
+      const catName = cat.charAt(0).toUpperCase() + cat.slice(1);
+      const cmds = categories[cat].sort().join(", ");
+      msg += `✦ 𝗖𝗮𝘁𝗲𝗴𝗼𝗿𝘆: ${catName.toUpperCase()}\n`;
+      msg += `⸺ ${cmds}\n\n`;
+    }
 
-			// ── !help <number> → show that category ────────────────────────
-			if (arg) {
-				const num = parseInt(arg);
-				if (num < 1 || num > catNames.length) {
-					await send(`❌ Pick a number from 1 to ${catNames.length}.\n  Use !help to see the category list.`, event.threadID);
-					return;
-				}
+    msg += `⸺ 𝗧𝗼𝘁𝗮𝗹 𝗖𝗼𝗺𝗺𝗮𝗻𝗱𝘀: ${allCommands.size}\n`;
+    msg += `⸺ 𝗧𝘆𝗽𝗲 ${prefix}𝗵𝗲𝗹𝗽 [𝗻𝗮𝗺𝗲] 𝗳𝗼𝗿 𝗱𝗲𝘁𝗮𝗶𝗹𝘀\n`;
+    msg += `⸺ 𝗧𝘆𝗽𝗲 ${prefix}𝗵𝗲𝗹𝗽 [𝗽𝗮𝗴𝗲] 𝗳𝗼𝗿 𝗺𝗼𝗿𝗲`;
 
-				const cat = catNames[num - 1];
-				const cmds = categories[cat].sort((a, b) => a.name.localeCompare(b.name));
-				const icon = catIcon(cat);
-
-				let msg = `╭━━━━━━━━━━━━━━━━━━━━━━━╮\n`;
-				msg += `   ${icon}  ${cat.toUpperCase()}  COMMANDS\n`;
-				msg += `╰━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
-
-				cmds.forEach((cmd, i) => {
-					const n = String(i + 1).padStart(2, '0');
-					const desc = cmd.description
-						? (typeof cmd.description === 'string' ? cmd.description : cmd.description.en || '')
-						: '';
-					const short = desc.length > 30 ? desc.substring(0, 30) + '…' : desc || '—';
-					msg += ` ${n} ❯  !${cmd.name}\n`;
-					msg += `  ╰┈┈ ${short}\n\n`;
-				});
-
-				msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-				msg += `  🔍 !help <cmd> for details\n`;
-				msg += `  ↩️  !help to go back`;
-
-				await send(msg, event.threadID);
-				return;
-			}
-
-			// ── !help → main category menu ──────────────────────────────────
-			let msg = `╭━━━━━━━━━━━━━━━━━━━━━━━╮\n`;
-			msg += `    ✦  𝗞𝗨𝗥𝗨𝗠𝗜  𝗕𝗢𝗧  𝗠𝗘𝗡𝗨  ✦\n`;
-			msg += `╰━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
-
-			catNames.forEach((cat, i) => {
-				const num = String(i + 1).padStart(2, '0');
-				const icon = catIcon(cat);
-				const count = categories[cat].length;
-				msg += ` ${num} ❯  ${icon}  ${cat.toUpperCase()}\n`;
-				msg += `  ╰┈┈ ${count} command${count > 1 ? 's' : ''}\n\n`;
-			});
-
-			msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-			msg += `  ✦ Total   : ${total} Commands\n`;
-			msg += `  ✦ Prefix  : !\n`;
-			msg += `  ✦ Status  : Online 🟢\n`;
-			msg += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-			msg += `  📂 !help 1  !help 2  !help 3\n`;
-			msg += `  🔍 !help <cmd> for details`;
-
-			await send(msg, event.threadID);
-
-		} catch (err) {
-			console.error('Help error:', err);
-			await send('⚠️ Failed to load help menu.', event.threadID);
-		}
-	}
+    return message.reply(msg);
+  }
 };
-
-// ── Command detail card ────────────────────────────────────────────────────
-function buildCard(cfg) {
-	const desc = cfg.description
-		? (typeof cfg.description === 'string' ? cfg.description : cfg.description.en || 'No description')
-		: 'No description';
-
-	const guide = cfg.guide
-		? (typeof cfg.guide === 'string' ? cfg.guide : cfg.guide.en || 'No guide')
-		: 'No guide available';
-
-	const roles = ['👤 User', '👮 Moderator', '🛡️ Admin', '👑 Owner'];
-	const roleLabel = roles[cfg.role] || `Level ${cfg.role}`;
-
-	let card = `╭━━━━━━━━━━━━━━━━━━━━━━━╮\n`;
-	card += `   ✦  COMMAND  INFO\n`;
-	card += `╰━━━━━━━━━━━━━━━━━━━━━━━╯\n\n`;
-	card += `  ⚡  !${cfg.name}\n\n`;
-	card += `  📂  ${(cfg.category || 'uncategorized').toUpperCase()}\n`;
-	card += `  🔐  ${roleLabel}\n`;
-	card += `  👤  ${cfg.author || 'Unknown'}\n`;
-	card += `  📝  v${cfg.version || 'N/A'}\n`;
-
-	if (cfg.countDown)
-		card += `  ⏱️  Cooldown : ${cfg.countDown}s\n`;
-
-	if (cfg.aliases && cfg.aliases.length)
-		card += `  🔄  Aliases  : ${cfg.aliases.join(', ')}\n`;
-
-	card += `  💎  Premium  : ${cfg.premium ? 'Yes ✅' : 'No ❌'}\n`;
-
-	if (cfg.unsend != null) {
-		const u = typeof cfg.unsend === 'number' ? `${cfg.unsend}s` : cfg.unsend;
-		card += `  🗑️  Auto-del : ${u}\n`;
-	}
-
-	card += `\n━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-	card += `  📋  ${desc}\n`;
-	card += `━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
-	card += `  📚  Usage\n`;
-	card += `  ╰┈┈ ${guide.replace(/{pn}/g, `!${cfg.name}`)}\n`;
-	card += `━━━━━━━━━━━━━━━━━━━━━━━━━`;
-
-	return card;
-}
