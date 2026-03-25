@@ -1,175 +1,484 @@
-const { drive, getStreamFromURL, getExtFromUrl, getTime } = global.utils;
+const {
+    createCanvas,
+    loadImage,
+    registerFont
+} = require('canvas');
+const fs = require('fs-extra');
+const path = require('path');
+const { getTime, drive } = global.utils;
+
+const fontDir = process.cwd() + "/scripts/cmds/assets/font";
+const canvasFontDir = process.cwd() + "/scripts/cmds/canvas/fonts";
+
+registerFont(path.join(fontDir, "NotoSans-Bold.ttf"), {
+    family: 'NotoSans',
+    weight: 'bold'
+});
+
+registerFont(path.join(fontDir, "NotoSans-SemiBold.ttf"), {
+    family: 'NotoSans',
+    weight: '600'
+});
+
+registerFont(path.join(fontDir, "NotoSans-Regular.ttf"), {
+    family: 'NotoSans',
+    weight: 'normal'
+});
+
+registerFont(path.join(fontDir, "BeVietnamPro-Bold.ttf"), {
+    family: 'BeVietnamPro',
+    weight: 'bold'
+});
+
+registerFont(path.join(fontDir, "BeVietnamPro-SemiBold.ttf"), {
+    family: 'BeVietnamPro',
+    weight: '600'
+});
+
+registerFont(path.join(fontDir, "BeVietnamPro-Regular.ttf"), {
+    family: 'BeVietnamPro',
+    weight: 'normal'
+});
+
+registerFont(path.join(fontDir, "Kanit-SemiBoldItalic.ttf"), {
+    family: 'Kanit',
+    weight: '600',
+    style: 'italic'
+});
+
+registerFont(path.join(canvasFontDir, "Rounded.otf"), {
+    family: 'Rounded'
+});
+
+async function createWelcomeCanvas(gcImg, img1, img2, userName, userNumber, threadName, potato) {
+    const width = 1200;
+    const height = 600;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+
+    function fitAndSetFont(family, weight, maxSize, minSize, text, maxWidth, style = '') {
+        let size = maxSize;
+        for (; size >= minSize; size -= 1) {
+            ctx.font = `${style ? style + ' ' : ''}${weight} ${size}px ${family}`;
+            if (ctx.measureText(text).width <= maxWidth) break;
+        }
+        ctx.font = `${style ? style + ' ' : ''}${weight} ${Math.max(size, minSize)}px ${family}`;
+        return Math.max(size, minSize);
+    }
+    function drawTextWithStroke(text, x, y, align = 'left') {
+        ctx.textAlign = align;
+        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(text, x, y);
+        ctx.fillText(text, x, y);
+    }
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 2;
+    for (let i = -height; i < width; i += 60) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i + height, height);
+        ctx.stroke();
+    }
+    const lightGradient = ctx.createLinearGradient(0, 0, width, height);
+    lightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.02)');
+    lightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
+    lightGradient.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
+    ctx.fillStyle = lightGradient;
+    ctx.fillRect(0, 0, width, height);
+    const squares = [{
+        x: 50,
+        y: 50,
+        size: 80,
+        rotation: 15
+    },
+        {
+            x: 1100,
+            y: 80,
+            size: 60,
+            rotation: -20
+        },
+        {
+            x: 150,
+            y: 500,
+            size: 50,
+            rotation: 30
+        },
+        {
+            x: 1050,
+            y: 480,
+            size: 70,
+            rotation: -15
+        },
+        {
+            x: 900,
+            y: 30,
+            size: 40,
+            rotation: 45
+        },
+        {
+            x: 200,
+            y: 150,
+            size: 35,
+            rotation: -30
+        },
+        {
+            x: 400,
+            y: 80,
+            size: 45,
+            rotation: 60
+        },
+        {
+            x: 700,
+            y: 520,
+            size: 55,
+            rotation: -40
+        },
+        {
+            x: 950,
+            y: 250,
+            size: 38,
+            rotation: 25
+        },
+        {
+            x: 300,
+            y: 350,
+            size: 42,
+            rotation: -50
+        }];
+
+    squares.forEach(sq => {
+        ctx.save();
+        ctx.translate(sq.x + sq.size / 2, sq.y + sq.size / 2);
+        ctx.rotate((sq.rotation * Math.PI) / 180);
+
+        const sqGradient = ctx.createLinearGradient(-sq.size / 2, -sq.size / 2, sq.size / 2, sq.size / 2);
+        sqGradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)');
+        sqGradient.addColorStop(1, 'rgba(22, 163, 74, 0.1)');
+
+        ctx.fillStyle = sqGradient;
+        ctx.fillRect(-sq.size / 2, -sq.size / 2, sq.size, sq.size);
+
+        ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-sq.size / 2, -sq.size / 2, sq.size, sq.size);
+
+        ctx.restore();
+    });
+    const circles = [{
+        x: 250,
+        y: 250,
+        radius: 30,
+        alpha: 0.15
+    },
+        {
+            x: 850,
+            y: 150,
+            radius: 25,
+            alpha: 0.12
+        },
+        {
+            x: 600,
+            y: 50,
+            radius: 20,
+            alpha: 0.1
+        },
+        {
+            x: 100,
+            y: 350,
+            radius: 35,
+            alpha: 0.18
+        },
+        {
+            x: 1000,
+            y: 380,
+            radius: 28,
+            alpha: 0.14
+        },
+        {
+            x: 450,
+            y: 480,
+            radius: 22,
+            alpha: 0.11
+        }];
+
+    circles.forEach(circ => {
+        ctx.beginPath();
+        ctx.arc(circ.x, circ.y, circ.radius, 0, Math.PI * 2);
+        const circGradient = ctx.createRadialGradient(circ.x, circ.y, 0, circ.x, circ.y, circ.radius);
+        circGradient.addColorStop(0, `rgba(34, 197, 94, ${circ.alpha})`);
+        circGradient.addColorStop(1, 'rgba(22, 163, 74, 0)');
+        ctx.fillStyle = circGradient;
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(34, 197, 94, ${circ.alpha * 2})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    });
+    const triangles = [{
+        x: 550,
+        y: 150,
+        size: 40,
+        rotation: 0
+    },
+        {
+            x: 180,
+            y: 420,
+            size: 35,
+            rotation: 180
+        },
+        {
+            x: 1080,
+            y: 320,
+            size: 38,
+            rotation: 90
+        },
+        {
+            x: 380,
+            y: 200,
+            size: 32,
+            rotation: -45
+        }];
+
+    triangles.forEach(tri => {
+        ctx.save();
+        ctx.translate(tri.x, tri.y);
+        ctx.rotate((tri.rotation * Math.PI) / 180);
+
+        ctx.beginPath();
+        ctx.moveTo(0, -tri.size / 2);
+        ctx.lineTo(-tri.size / 2, tri.size / 2);
+        ctx.lineTo(tri.size / 2, tri.size / 2);
+        ctx.closePath();
+
+        const triGradient = ctx.createLinearGradient(-tri.size / 2, 0, tri.size / 2, 0);
+        triGradient.addColorStop(0, 'rgba(34, 197, 94, 0.2)');
+        triGradient.addColorStop(1, 'rgba(22, 163, 74, 0.1)');
+        ctx.fillStyle = triGradient;
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.restore();
+    });
+
+    async function drawCircularImage(imageSrc, x, y, radius, borderColor, borderWidth = 5) {
+        try {
+            const image = await loadImage(imageSrc);
+            ctx.shadowColor = borderColor;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(x, y, radius + borderWidth, 0, Math.PI * 2);
+            ctx.fillStyle = borderColor;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, radius + borderWidth, 0, Math.PI * 2);
+            ctx.fillStyle = borderColor;
+            ctx.fill();
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(image, x - radius, y - radius, radius * 2, radius * 2);
+            ctx.restore();
+        } catch (err) {
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#1f1f1f';
+            ctx.fill();
+        }
+    }
+    
+    await drawCircularImage(img2, width - 120, 100, 55, '#22c55e');
+    fitAndSetFont('"NotoSans", "BeVietnamPro", sans-serif', 'bold', 22, 14, 'Added by ' + potato, 320);
+    ctx.fillStyle = '#22c55e';
+    ctx.textAlign = 'right';
+    drawTextWithStroke('Added by ' + potato, width - 190, 105, 'right');
+    await drawCircularImage(img1, 120, height - 100, 55, '#16a34a');
+    fitAndSetFont('"NotoSans", "BeVietnamPro", sans-serif', 'bold', 28, 16, userName, width - 250);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    drawTextWithStroke(userName, 190, height - 95, 'left');
+    await drawCircularImage(gcImg, width / 2, 200, 90, '#22c55e', 6);
+    fitAndSetFont('"NotoSans", "BeVietnamPro", sans-serif', '600', 42, 20, threadName, width * 0.8);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    drawTextWithStroke(threadName, width / 2, 335, 'center');
+    fitAndSetFont('"Kanit", "NotoSans", sans-serif', '600', 56, 28, 'WELCOME', width * 0.9, 'italic');
+    const nameGradient = ctx.createLinearGradient(width / 2 - 200, 0, width / 2 + 200, 0);
+    nameGradient.addColorStop(0, '#4ade80');
+    nameGradient.addColorStop(1, '#22c55e');
+    ctx.fillStyle = nameGradient;
+    drawTextWithStroke('WELCOME', width / 2, 410, 'center');
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(width / 2 - 180, 430);
+    ctx.lineTo(width / 2 + 180, 430);
+    ctx.stroke();
+    fitAndSetFont('"NotoSans", "BeVietnamPro", sans-serif', '600', 26, 16, `You are the ${userNumber}th member`, width * 0.9);
+    ctx.fillStyle = '#a0a0a0';
+    ctx.textAlign = 'center';
+    drawTextWithStroke(`You are the ${userNumber}th member`, width / 2, 480, 'center');
+
+    return canvas.createPNGStream();
+}
 
 module.exports = {
-	config: {
-		name: "setwelcome",
-		aliases: ["setwc"],
-		version: "2.4.78",
-		author: "NTKhang | Enhanced by ST",
-		countDown: 5,
-		role: 1,
-		description: {
-			vi: "Chỉnh sửa nội dung tin nhắn chào mừng thành viên mới tham gia vào nhóm chat của bạn",
-			en: "Edit welcome message content when new member join your group chat"
-		},
-		category: "custom",
-		guide: {
-			vi: {
-				body: "   {pn} text [<nội dung> | reset]: chỉnh sửa nội dung văn bản hoặc reset về mặc định, với những shortcut có sẵn:"
-					+ "\n  + {userName}: tên của thành viên mới"
-					+ "\n  + {userNameTag}: tên của thành viên mới (tag)"
-					+ "\n  + {boxName}:  tên của nhóm chat"
-					+ "\n  + {multiple}: bạn || các bạn"
-					+ "\n  + {session}:  buổi trong ngày"
-					+ "\n  + {memberNumber}: số thứ tự thành viên"
-					+ "\n  + {totalMembers}: tổng số thành viên"
-					+ "\n  + {oo}: người mời bot vào nhóm"
-					+ "\n  + {dailyJoins}: số người tham gia hôm nay"
-					+ "\n\n   Ví dụ:"
-					+ "\n    {pn} text Hello {userName}, welcome to {boxName}, chúc {multiple} một ngày mới vui vẻ"
-					+ "\n"
-					+ "\n   Reply (phản hồi) hoặc gửi kèm một tin nhắn có file với nội dung {pn} file: để thêm tệp đính kèm vào tin nhắn chào mừng (ảnh, video, audio)"
-					+ "\n\n   Ví dụ:"
-					+ "\n    {pn} file reset: xóa gửi file",
-				attachment: {
-					[`${__dirname}/assets/guide/setwelcome/setwelcome_vi_1.png`]: "https://i.ibb.co/vd6bQrW/setwelcome-vi-1.png"
-				}
-			},
-			en: {
-				body: "   {pn} text [<content> | reset]: edit text content or reset to default, with some shortcuts:"
-					+ "\n  + {userName}: new member name"
-					+ "\n  + {userNameTag}: new member name (tag)"
-					+ "\n  + {boxName}:  group chat name"
-					+ "\n  + {multiple}: you || you guys"
-					+ "\n  + {session}:  session in day"
-					+ "\n  + {memberNumber}: member position number"
-					+ "\n  + {totalMembers}: total group members"
-					+ "\n  + {oo}: person who invited the bot"
-					+ "\n  + {dailyJoins}: number of people who joined today"
-					+ "\n\n   Example:"
-					+ "\n    {pn} text Hello {userName}, welcome to {boxName}, have a nice day {multiple}"
-					+ "\n"
-					+ "\n   Reply (phản hồi) or send a message with file with content {pn} file: to add file attachments to welcome message (image, video, audio)"
-					+ "\n\n   Example:"
-					+ "\n    {pn} file reset: delete file attachments",
-				attachment: {
-					[`${__dirname}/assets/guide/setwelcome/setwelcome_en_1.png`]: "https://i.ibb.co/vsCz0ks/setwelcome-en-1.png"
-				}
-			}
-		}
-	},
+    config: {
+        name: "welcome",
+        version: "1.3",
+        author: "Neoaz ゐ",//Adapted from @procoder Allou Mohammed
+        category: "events"
+    },
+    
+    langs: {
+        vi: {
+            session1: "sáng",
+            session2: "trưa",
+            session3: "chiều",
+            session4: "tối",
+            defaultWelcomeMessage: "Chào mừng {userName} đến với {boxName}"
+        },
+        en: {
+            session1: "morning",
+            session2: "noon",
+            session3: "afternoon",
+            session4: "evening",
+            defaultWelcomeMessage: "Welcome {userName} to {boxName}"
+        }
+    },
 
-	langs: {
-		vi: {
-			turnedOn: "Đã bật chức năng chào mừng thành viên mới",
-			turnedOff: "Đã tắt chức năng chào mừng thành viên mới",
-			missingContent: "Vui lùng nhập nội dung tin nhắn",
-			edited: "Đã chỉnh sửa nội dung tin nhắn chào mừng của nhóm bạn thành: %1",
-			reseted: "Đã reset nội dung tin nhắn chào mừng",
-			noFile: "Không có tệp đính kèm tin nhắn chào mừng nào để xóa",
-			resetedFile: "Đã reset tệp đính kèm thành công",
-			missingFile: "Hãy phản hồi tin nhắn này kèm file ảnh/video/audio",
-			addedFile: "Đã thêm %1 tệp đính kèm vào tin nhắn chào mừng của nhóm bạn"
-		},
-		en: {
-			turnedOn: "Turned on welcome message",
-			turnedOff: "Turned off welcome message",
-			missingContent: "Please enter welcome message content",
-			edited: "Edited welcome message content of your group to: %1",
-			reseted: "Reseted welcome message content",
-			noFile: "No file attachments to delete",
-			resetedFile: "Reseted file attachments successfully",
-			missingFile: "Please reply this message with image/video/audio file",
-			addedFile: "Added %1 file attachments to your group welcome message"
-		}
-	},
+        onStart: async ({
+        threadsData, event, message, usersData, getLang, api
+    }) => {
+        const type = "log:subscribe";
+        if (event.logMessageType != type) return;
+        
+        console.log(`[WELCOME] Triggered for thread ${event.threadID}`);
+        
+        try {
+            await threadsData.refreshInfo(event.threadID);
+            const threadsInfo = await threadsData.get(event.threadID);
+            if (!threadsInfo.settings.sendWelcomeMessage) {
+                console.log(`[WELCOME] Welcome message disabled for ${event.threadID}`);
+                return;
+            }
+            
+            const gcImg = threadsInfo.imageSrc;
+            const threadName = threadsInfo.threadName;
+            const addedList = event.logMessageData.addedParticipants || [];
+            const joined = addedList[0]?.userFbId;
+            const by = event.author;
+            
+            if (!joined) {
+                console.log(`[WELCOME] No joined user found in event data`);
+                return;
+            }
+            
+            console.log(`[WELCOME] Processing welcome for ${joined} joined by ${by}`);
+            
+            const img1 = await usersData.getAvatarUrl(joined).catch(() => null);
+            const img2 = await usersData.getAvatarUrl(by).catch(() => null);
+            const usernumber = threadsInfo.members?.length || 1;
+            const userName = event.logMessageData.addedParticipants[0].fullName || (await usersData.getName(joined));
+            const authorN = await usersData.getName(by);
+            
+            const welcomeImage = await createWelcomeCanvas(gcImg, img1, img2, userName, usernumber, threadName, authorN);
+            
+            // Fix: Use project root tmp folder
+            const imagePath = path.join(process.cwd(), 'tmp', global.utils.randomString(4) + ".png");
+            const writeStream = fs.createWriteStream(imagePath);
+            welcomeImage.pipe(writeStream);
+            
+            await new Promise((resolve, reject) => {
+                writeStream.on('finish', resolve);
+                writeStream.on('error', reject);
+            });
+            
+            console.log(`[WELCOME] Image created at ${imagePath}`);
 
-	onStart: async function ({ args, threadsData, message, event, commandName, getLang }) {
-		const { threadID, senderID, body } = event;
-		const { data, settings } = await threadsData.get(threadID);
+            const hours = getTime("HH");
+            const data = threadsInfo.data || {};
+            let { welcomeMessage = getLang("defaultWelcomeMessage") } = data;
 
-		switch (args[0]) {
-			case "text": {
-				if (!args[1])
-					return message.reply(getLang("missingContent"));
-				else if (args[1] == "reset")
-					delete data.welcomeMessage;
-				else
-					data.welcomeMessage = body.slice(body.indexOf(args[0]) + args[0].length).trim();
-				await threadsData.set(threadID, {
-					data
-				});
-				message.reply(data.welcomeMessage ? getLang("edited", data.welcomeMessage) : getLang("reseted"));
-				break;
-			}
-			case "file": {
-				if (args[1] == "reset") {
-					const { welcomeAttachment } = data;
-					if (!welcomeAttachment)
-						return message.reply(getLang("noFile"));
-					try {
-						await Promise.all(data.welcomeAttachment.map(fileId => drive.deleteFile(fileId)));
-						delete data.welcomeAttachment;
-					}
-					catch (e) { }
-					await threadsData.set(threadID, {
-						data
-					});
-					message.reply(getLang("resetedFile"));
-				}
-				else if (event.attachments.length == 0 && (!event.messageReply || event.messageReply.attachments.length == 0))
-					return message.reply(getLang("missingFile"), (err, info) => {
-						global.GoatBot.onReply.set(info.messageID, {
-							messageID: info.messageID,
-							author: senderID,
-							commandName
-						});
-					});
-				else {
-					saveChanges(message, event, threadID, senderID, threadsData, getLang);
-				}
-				break;
-			}
-			case "on":
-			case "off": {
-				settings.sendWelcomeMessage = args[0] == "on";
-				await threadsData.set(threadID, { settings });
-				message.reply(settings.sendWelcomeMessage ? getLang("turnedOn") : getLang("turnedOff"));
-				break;
-			}
-			default:
-				message.SyntaxError();
-				break;
-		}
-	},
+            const names = await Promise.all(addedList.map(p => usersData.getName(p.userFbId)));
+            const nameJoined = names.join(", ");
+            const multipleText = addedList.length > 1 ? "you guys" : "you";
 
-	onReply: async function ({ event, Reply, message, threadsData, getLang }) {
-		const { threadID, senderID } = event;
-		if (senderID != Reply.author)
-			return;
+            const form = {};
+            if (welcomeMessage.includes("{userNameTag}")) {
+                form.mentions = [{
+                    id: joined,
+                    tag: userName
+                }];
+            }
 
-		if (event.attachments.length == 0 && (!event.messageReply || event.messageReply.attachments.length == 0))
-			return message.reply(getLang("missingFile"));
-		saveChanges(message, event, threadID, senderID, threadsData, getLang);
-	}
+            welcomeMessage = (welcomeMessage || "")
+                .replace(/\{userName\}/g, nameJoined)
+                .replace(/\{userNameTag\}/g, userName)
+                .replace(/\{threadName\}|\{boxName\}/g, threadName)
+                .replace(/\{time\}/g, hours)
+                .replace(/\{multiple\}/g, multipleText)
+                .replace(/\{session\}/g, hours <= 10
+                    ? getLang("session1")
+                    : hours <= 12
+                        ? getLang("session2")
+                        : hours <= 18
+                            ? getLang("session3")
+                            : getLang("session4")
+                );
+
+            form.body = welcomeMessage;
+
+            const attachments = [];
+            if (threadsInfo.data?.welcomeAttachment && Array.isArray(threadsInfo.data.welcomeAttachment)) {
+                const files = threadsInfo.data.welcomeAttachment;
+                const fromDrive = await Promise.allSettled(files.map(file => drive.getFile(file, "stream")));
+                for (const r of fromDrive)
+                    if (r.status == "fulfilled")
+                        attachments.push(r.value);
+            }
+            attachments.push(fs.createReadStream(imagePath));
+            form.attachment = attachments;
+
+            // Fix: Capture sent message info to get a valid messageID
+            console.log(`[WELCOME] Sending welcome message...`);
+            const sentInfo = await message.send(form);
+            const sentMessageID = sentInfo?.messageID;
+
+            // Call sendButtons extension
+            if (typeof api.sendButtons === "function") {
+                console.log(`[WELCOME] Invoking api.sendButtons...`);
+                api.sendButtons(
+                    "61588057525081:MjU5NTk2NTkwNzczODUyMg==", // Placeholder CTA ID
+                    welcomeMessage,
+                    event.threadID,
+                    sentMessageID || event.messageID // Use sent message ID or fallback
+                )
+                .then(() => console.log(`[WELCOME] Buttons sent successfully`))
+                .catch((err) => {
+                    console.error("[WELCOME] Failed to send buttons:", err.message);
+                });
+            } else {
+                console.warn(`[WELCOME] api.sendButtons is not defined! Check custom.js registration.`);
+            }
+            
+            // Clean up
+            setTimeout(() => {
+                fs.unlink(imagePath).catch(() => {});
+            }, 5000); // Wait a bit to ensure stream is fully read if needed
+            
+        } catch (error) {
+            console.error("[WELCOME] Error in execution:", error.message);
+            console.error(error.stack);
+        }
+    }
 };
-
-async function saveChanges(message, event, threadID, senderID, threadsData, getLang) {
-	const { data } = await threadsData.get(threadID);
-	const attachments = [...event.attachments, ...(event.messageReply?.attachments || [])].filter(item => ["photo", 'png', "animated_image", "video", "audio"].includes(item.type));
-	if (!data.welcomeAttachment)
-		data.welcomeAttachment = [];
-
-	await Promise.all(attachments.map(async attachment => {
-		const { url } = attachment;
-		const ext = getExtFromUrl(url);
-		const fileName = `${getTime()}.${ext}`;
-		const infoFile = await drive.uploadFile(`setwelcome_${threadID}_${senderID}_${fileName}`, await getStreamFromURL(url));
-		data.welcomeAttachment.push(infoFile.id);
-	}));
-
-	await threadsData.set(threadID, {
-		data
-	});
-	message.reply(getLang("addedFile", attachments.length));
-}
