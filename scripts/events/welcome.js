@@ -1,343 +1,457 @@
+const {
+    createCanvas,
+    loadImage,
+    registerFont
+} = require('canvas');
+const fs = require('fs-extra');
+const path = require('path');
 const { getTime, drive } = global.utils;
-if (!global.temp.welcomeEvent)
-	global.temp.welcomeEvent = {};
+
+const fontDir = process.cwd() + "/scripts/cmds/assets/font";
+const canvasFontDir = process.cwd() + "/scripts/cmds/canvas/fonts";
+
+registerFont(path.join(fontDir, "NotoSans-Bold.ttf"), {
+    family: 'NotoSans',
+    weight: 'bold'
+});
+
+registerFont(path.join(fontDir, "NotoSans-SemiBold.ttf"), {
+    family: 'NotoSans',
+    weight: '600'
+});
+
+registerFont(path.join(fontDir, "NotoSans-Regular.ttf"), {
+    family: 'NotoSans',
+    weight: 'normal'
+});
+
+registerFont(path.join(fontDir, "BeVietnamPro-Bold.ttf"), {
+    family: 'BeVietnamPro',
+    weight: 'bold'
+});
+
+registerFont(path.join(fontDir, "BeVietnamPro-SemiBold.ttf"), {
+    family: 'BeVietnamPro',
+    weight: '600'
+});
+
+registerFont(path.join(fontDir, "BeVietnamPro-Regular.ttf"), {
+    family: 'BeVietnamPro',
+    weight: 'normal'
+});
+
+registerFont(path.join(fontDir, "Kanit-SemiBoldItalic.ttf"), {
+    family: 'Kanit',
+    weight: '600',
+    style: 'italic'
+});
+
+registerFont(path.join(canvasFontDir, "Rounded.otf"), {
+    family: 'Rounded'
+});
+
+async function createWelcomeCanvas(gcImg, img1, img2, userName, userNumber, threadName, potato) {
+    const width = 1200;
+    const height = 600;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#0a0a0a';
+    ctx.fillRect(0, 0, width, height);
+
+    function fitAndSetFont(family, weight, maxSize, minSize, text, maxWidth, style = '') {
+        let size = maxSize;
+        for (; size >= minSize; size -= 1) {
+            ctx.font = `${style ? style + ' ' : ''}${weight} ${size}px ${family}`;
+            if (ctx.measureText(text).width <= maxWidth) break;
+        }
+        ctx.font = `${style ? style + ' ' : ''}${weight} ${Math.max(size, minSize)}px ${family}`;
+        return Math.max(size, minSize);
+    }
+    function drawTextWithStroke(text, x, y, align = 'left') {
+        ctx.textAlign = align;
+        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+        ctx.lineWidth = 4;
+        ctx.strokeText(text, x, y);
+        ctx.fillText(text, x, y);
+    }
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+    ctx.lineWidth = 2;
+    for (let i = -height; i < width; i += 60) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i + height, height);
+        ctx.stroke();
+    }
+    const lightGradient = ctx.createLinearGradient(0, 0, width, height);
+    lightGradient.addColorStop(0, 'rgba(255, 255, 255, 0.02)');
+    lightGradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.05)');
+    lightGradient.addColorStop(1, 'rgba(255, 255, 255, 0.02)');
+    ctx.fillStyle = lightGradient;
+    ctx.fillRect(0, 0, width, height);
+    const squares = [{
+        x: 50,
+        y: 50,
+        size: 80,
+        rotation: 15
+    },
+        {
+            x: 1100,
+            y: 80,
+            size: 60,
+            rotation: -20
+        },
+        {
+            x: 150,
+            y: 500,
+            size: 50,
+            rotation: 30
+        },
+        {
+            x: 1050,
+            y: 480,
+            size: 70,
+            rotation: -15
+        },
+        {
+            x: 900,
+            y: 30,
+            size: 40,
+            rotation: 45
+        },
+        {
+            x: 200,
+            y: 150,
+            size: 35,
+            rotation: -30
+        },
+        {
+            x: 400,
+            y: 80,
+            size: 45,
+            rotation: 60
+        },
+        {
+            x: 700,
+            y: 520,
+            size: 55,
+            rotation: -40
+        },
+        {
+            x: 950,
+            y: 250,
+            size: 38,
+            rotation: 25
+        },
+        {
+            x: 300,
+            y: 350,
+            size: 42,
+            rotation: -50
+        }];
+
+    squares.forEach(sq => {
+        ctx.save();
+        ctx.translate(sq.x + sq.size / 2, sq.y + sq.size / 2);
+        ctx.rotate((sq.rotation * Math.PI) / 180);
+
+        const sqGradient = ctx.createLinearGradient(-sq.size / 2, -sq.size / 2, sq.size / 2, sq.size / 2);
+        sqGradient.addColorStop(0, 'rgba(34, 197, 94, 0.3)');
+        sqGradient.addColorStop(1, 'rgba(22, 163, 74, 0.1)');
+
+        ctx.fillStyle = sqGradient;
+        ctx.fillRect(-sq.size / 2, -sq.size / 2, sq.size, sq.size);
+
+        ctx.strokeStyle = 'rgba(34, 197, 94, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(-sq.size / 2, -sq.size / 2, sq.size, sq.size);
+
+        ctx.restore();
+    });
+    const circles = [{
+        x: 250,
+        y: 250,
+        radius: 30,
+        alpha: 0.15
+    },
+        {
+            x: 850,
+            y: 150,
+            radius: 25,
+            alpha: 0.12
+        },
+        {
+            x: 600,
+            y: 50,
+            radius: 20,
+            alpha: 0.1
+        },
+        {
+            x: 100,
+            y: 350,
+            radius: 35,
+            alpha: 0.18
+        },
+        {
+            x: 1000,
+            y: 380,
+            radius: 28,
+            alpha: 0.14
+        },
+        {
+            x: 450,
+            y: 480,
+            radius: 22,
+            alpha: 0.11
+        }];
+
+    circles.forEach(circ => {
+        ctx.beginPath();
+        ctx.arc(circ.x, circ.y, circ.radius, 0, Math.PI * 2);
+        const circGradient = ctx.createRadialGradient(circ.x, circ.y, 0, circ.x, circ.y, circ.radius);
+        circGradient.addColorStop(0, `rgba(34, 197, 94, ${circ.alpha})`);
+        circGradient.addColorStop(1, 'rgba(22, 163, 74, 0)');
+        ctx.fillStyle = circGradient;
+        ctx.fill();
+
+        ctx.strokeStyle = `rgba(34, 197, 94, ${circ.alpha * 2})`;
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    });
+    const triangles = [{
+        x: 550,
+        y: 150,
+        size: 40,
+        rotation: 0
+    },
+        {
+            x: 180,
+            y: 420,
+            size: 35,
+            rotation: 180
+        },
+        {
+            x: 1080,
+            y: 320,
+            size: 38,
+            rotation: 90
+        },
+        {
+            x: 380,
+            y: 200,
+            size: 32,
+            rotation: -45
+        }];
+
+    triangles.forEach(tri => {
+        ctx.save();
+        ctx.translate(tri.x, tri.y);
+        ctx.rotate((tri.rotation * Math.PI) / 180);
+
+        ctx.beginPath();
+        ctx.moveTo(0, -tri.size / 2);
+        ctx.lineTo(-tri.size / 2, tri.size / 2);
+        ctx.lineTo(tri.size / 2, tri.size / 2);
+        ctx.closePath();
+
+        const triGradient = ctx.createLinearGradient(-tri.size / 2, 0, tri.size / 2, 0);
+        triGradient.addColorStop(0, 'rgba(34, 197, 94, 0.2)');
+        triGradient.addColorStop(1, 'rgba(22, 163, 74, 0.1)');
+        ctx.fillStyle = triGradient;
+        ctx.fill();
+
+        ctx.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.restore();
+    });
+
+    async function drawCircularImage(imageSrc, x, y, radius, borderColor, borderWidth = 5) {
+        try {
+            const image = await loadImage(imageSrc);
+            ctx.shadowColor = borderColor;
+            ctx.shadowBlur = 15;
+            ctx.beginPath();
+            ctx.arc(x, y, radius + borderWidth, 0, Math.PI * 2);
+            ctx.fillStyle = borderColor;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.beginPath();
+            ctx.arc(x, y, radius + borderWidth, 0, Math.PI * 2);
+            ctx.fillStyle = borderColor;
+            ctx.fill();
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            ctx.drawImage(image, x - radius, y - radius, radius * 2, radius * 2);
+            ctx.restore();
+        } catch (err) {
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, Math.PI * 2);
+            ctx.fillStyle = '#1f1f1f';
+            ctx.fill();
+        }
+    }
+    
+    await drawCircularImage(img2, width - 120, 100, 55, '#22c55e');
+    fitAndSetFont('"NotoSans", "BeVietnamPro", sans-serif', 'bold', 22, 14, 'Added by ' + potato, 320);
+    ctx.fillStyle = '#22c55e';
+    ctx.textAlign = 'right';
+    drawTextWithStroke('Added by ' + potato, width - 190, 105, 'right');
+    await drawCircularImage(img1, 120, height - 100, 55, '#16a34a');
+    fitAndSetFont('"NotoSans", "BeVietnamPro", sans-serif', 'bold', 28, 16, userName, width - 250);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'left';
+    drawTextWithStroke(userName, 190, height - 95, 'left');
+    await drawCircularImage(gcImg, width / 2, 200, 90, '#22c55e', 6);
+    fitAndSetFont('"NotoSans", "BeVietnamPro", sans-serif', '600', 42, 20, threadName, width * 0.8);
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    drawTextWithStroke(threadName, width / 2, 335, 'center');
+    fitAndSetFont('"Kanit", "NotoSans", sans-serif', '600', 56, 28, 'WELCOME', width * 0.9, 'italic');
+    const nameGradient = ctx.createLinearGradient(width / 2 - 200, 0, width / 2 + 200, 0);
+    nameGradient.addColorStop(0, '#4ade80');
+    nameGradient.addColorStop(1, '#22c55e');
+    ctx.fillStyle = nameGradient;
+    drawTextWithStroke('WELCOME', width / 2, 410, 'center');
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(width / 2 - 180, 430);
+    ctx.lineTo(width / 2 + 180, 430);
+    ctx.stroke();
+    fitAndSetFont('"NotoSans", "BeVietnamPro", sans-serif', '600', 26, 16, `You are the ${userNumber}th member`, width * 0.9);
+    ctx.fillStyle = '#a0a0a0';
+    ctx.textAlign = 'center';
+    drawTextWithStroke(`You are the ${userNumber}th member`, width / 2, 480, 'center');
+
+    return canvas.createPNGStream();
+}
 
 module.exports = {
-	config: {
-		name: "welcome",
-		version: "2.4.78",
-		author: "ST | Sheikh Tamim",
-		category: "events"
-	},
+    config: {
+        name: "welcome",
+        version: "1.3",
+        author: "Neoaz ゐ",//Adapted from @procoder Allou Mohammed
+        category: "events"
+    },
+    
+    langs: {
+        vi: {
+            session1: "sáng",
+            session2: "trưa",
+            session3: "chiều",
+            session4: "tối",
+            defaultWelcomeMessage: "Chào mừng {userName} đến với {boxName}"
+        },
+        en: {
+            session1: "morning",
+            session2: "noon",
+            session3: "afternoon",
+            session4: "evening",
+            defaultWelcomeMessage: "Welcome {userName} to {boxName}"
+        }
+    },
 
-	langs: {
-		vi: {
-			session1: "sáng",
-			session2: "trưa",
-			session3: "chiều",
-			session4: "tối",
-			welcomeMessage: "Cảm ơn bạn đã mời tôi vào nhóm!\nPrefix bot: %1\nĐể xem danh sách lệnh hãy nhập: %1help",
-			multiple1: "bạn",
-			multiple2: "các bạn",
-			defaultWelcomeMessage: "🌟 Xin chào {userName}.\n\n➤ Chào mừng {multiple} đến với《 {boxName} 》\n\n📊 Thông tin nhóm:\n❀ Thành viên #{memberNumber}\n❀ Tổng cộng: {totalMembers}\n❀ Được mời bởi: {oo}\n❀ Buổi: {session}\n❀ Lượt tham gia hôm nay: {dailyJoins}\n\nChúc {multiple} có một ngày vui vẻ! 😊"
-		},
-		en: {
-			session1: "morning",
-			session2: "noon",
-			session3: "afternoon",
-			session4: "evening",
-			welcomeMessage: "Thank you for inviting me to the group!\nBot prefix: %1\nTo view the list of commands, please enter: %1help",
-			multiple1: "you",
-			multiple2: "you guys",
-			defaultWelcomeMessage: `🌟 Hello {userName}!\n\n➤ Welcome {multiple} to 《 {boxName} 》\n\n📊 Group Info:\n❀ Member #{memberNumber}\n❀ Total: {totalMembers}\n❀ Added by: {oo}\n❀ Time: {session}\n❀ Joins Today: {dailyJoins}\n\nHave a nice {session}! 😊`
-		}
-	},
+    onStart: async ({
+        threadsData, event, message, usersData, getLang, api
+    }) => {
+        const type = "log:subscribe";
+        if (event.logMessageType != type) return;
+        
+        try {
+            await threadsData.refreshInfo(event.threadID);
+            const threadsInfo = await threadsData.get(event.threadID);
+            if (!threadsInfo.settings.sendWelcomeMessage)
+                return;
+            const gcImg = threadsInfo.imageSrc;
+            const threadName = threadsInfo.threadName;
+            const addedList = event.logMessageData.addedParticipants || [];
+            const joined = addedList[0]?.userFbId;
+            const by = event.author;
+            if (!joined) return;
+            const img1 = await usersData.getAvatarUrl(joined).catch(() => null);
+            const img2 = await usersData.getAvatarUrl(by).catch(() => null);
+            const usernumber = threadsInfo.members?.length || 1;
+            const userName = event.logMessageData.addedParticipants[0].fullName || (await usersData.getName(joined));
+            const authorN = await usersData.getName(by);
+            
+            const welcomeImage = await createWelcomeCanvas(gcImg, img1, img2, userName, usernumber, threadName, authorN);
+            
+            const imagePath = path.join(__dirname, '../cmds/', global.utils.randomString(4) + ".png");
+            const writeStream = fs.createWriteStream(imagePath);
+            welcomeImage.pipe(writeStream);
+            
+            await new Promise((resolve) => {
+                writeStream.on('finish', resolve);
+            });
 
-	onStart: async ({ threadsData, message, event, api, getLang, usersData }) => {
-		if (event.logMessageType == "log:subscribe")
-			return async function () {
-				const hours = getTime("HH");
-				const { threadID } = event;
-				const { nickNameBot } = global.GoatBot.config;
-				const prefix = global.utils.getPrefix(threadID);
-				const dataAddedParticipants = event.logMessageData.addedParticipants;
-				// if new member is bot
-				if (dataAddedParticipants.some((item) => item.userFbId == api.getCurrentUserID())) {
-					if (nickNameBot)
-						api.changeNickname(nickNameBot, threadID, api.getCurrentUserID());
-					
-					// Check if thread approval system is enabled
-					const { threadApproval } = global.GoatBot.config;
-					if (threadApproval && threadApproval.enable) {
-						try {
-							// Check if this thread is in the auto-approved list
-							const isAutoApprovedThread = threadApproval.autoApprovedThreads && threadApproval.autoApprovedThreads.includes(threadID);
-							
-							if (isAutoApprovedThread) {
-								// Auto-approve the thread
-								await threadsData.set(threadID, { approved: true });
-								console.log(`Auto-approved thread ${threadID} from autoApprovedThreads list`);
-								
-								// Send welcome message for auto-approved threads
-								setTimeout(async () => {
-									try {
-										await api.sendMessage(getLang("welcomeMessage", prefix), threadID);
-									} catch (err) {
-										console.error(`Failed to send welcome message to auto-approved thread ${threadID}:`, err.message);
-									}
-								}, 2000);
-								return null;
-							}
-							
-							// Always set new threads as unapproved (if not auto-approved)
-							await threadsData.set(threadID, { approved: false });
-							
-							// Send notification to admin notification threads
-							if (threadApproval.adminNotificationThreads && threadApproval.adminNotificationThreads.length > 0 && threadApproval.sendNotifications !== false) {
-								setTimeout(async () => {
-									try {
-										let threadInfo = { threadName: "Unknown", participantIDs: [] };
-										let addedByName = "Unknown";
-										
-										// Get thread info with better error handling
-										try {
-											// First try to get from threadsData (more reliable)
-											try {
-												const threadData = await threadsData.get(threadID);
-												if (threadData && threadData.threadName && threadData.threadName !== "Unknown") {
-													threadInfo.threadName = threadData.threadName;
-													threadInfo.participantIDs = threadData.members || [];
-												} else {
-													throw new Error("threadsData returned unknown or empty");
-												}
-											} catch (threadsDataErr) {
-												// Fallback to API call
-												await new Promise(resolve => setTimeout(resolve, 3000));
-												const info = await api.getThreadInfo(threadID);
-												if (info && info.threadName) {
-													threadInfo = info;
-												} else {
-													threadInfo.threadName = `Thread ${threadID}`;
-													threadInfo.participantIDs = [];
-												}
-											}
-										} catch (err) {
-											console.error(`Failed to get thread info for ${threadID}:`, err.message);
-											threadInfo.threadName = `Thread ${threadID}`;
-											threadInfo.participantIDs = [];
-										}
-										
-										// Get user info with better error handling - use event.author like in w.js and logsbot.js
-										try {
-											if (event.author) {
-												// Use the same pattern as logsbot.js which works correctly
-												addedByName = await usersData.getName(event.author);
-												if (!addedByName || addedByName === "Unknown") {
-													// Fallback to API call if getName fails
-													try {
-														const userInfo = await api.getUserInfo(event.author);
-														if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
-															addedByName = userInfo[event.author].name;
-														} else {
-															addedByName = `User ${event.author}`;
-														}
-													} catch (apiErr) {
-														addedByName = `User ${event.author}`;
-													}
-												}
-											}
-										} catch (err) {
-											console.error(`Failed to get user info:`, err.message);
-											addedByName = "Unknown User";
-										}
-										
-										const notificationMessage = `🔔 BOT ADDED TO NEW THREAD 🔔\n\n` +
-											`📋 Thread Name: ${threadInfo.threadName || "Unknown"}\n` +
-											`🆔 Thread ID: ${threadID}\n` +
-											`👤 Added by: ${addedByName}\n` +
-											`👥 Members: ${threadInfo.participantIDs?.length || 0}\n` +
-											`⏰ Time: ${new Date().toLocaleString()}\n\n` +
-											`⚠️ This thread is NOT APPROVED. Bot will not respond to any commands.\n` +
-											`Use "${prefix}mthread" to manage thread approvals.`;
-										
-										for (let i = 0; i < threadApproval.adminNotificationThreads.length; i++) {
-											const notifyThreadID = threadApproval.adminNotificationThreads[i];
-											try {
-												if (i > 0) await new Promise(resolve => setTimeout(resolve, 1500));
-												await api.sendMessage(notificationMessage, notifyThreadID);
-											} catch (err) {
-												console.error(`Failed to send notification to thread ${notifyThreadID}:`, err.message);
-											}
-										}
-									} catch (err) {
-										console.error(`Failed to send notifications:`, err.message);
-									}
-								}, 5000);
-							}
-							
-							// Send warning message to the new thread if enabled
-							if (threadApproval.sendThreadMessage !== false) {
-								// Use setTimeout to avoid immediate API conflicts after bot addition
-								setTimeout(async () => {
-									try {
-										// Wait longer before sending to thread to ensure it's ready
-										await new Promise(resolve => setTimeout(resolve, 5000));
-										const warningMessage = `⚠️ This thread is not approved yet. Bot will not respond to any commands until approved by an admin.\n\nUse "${prefix}help" after approval to see available commands.`;
-										await api.sendMessage(warningMessage, threadID);
-									} catch (err) {
-										// Check if it's a thread disabled error and handle silently
-										if (err.error === 1545116 || err.errorSummary === 'Thread disabled') {
-											console.log(`Thread ${threadID} is disabled, skipping approval message`);
-										} else {
-											console.error(`Failed to send approval message to thread ${threadID}:`, err.message);
-										}
-									}
-								}, 10000); // 10 second delay for thread message
-							}
-							
-							return null; // Don't send welcome message for unapproved threads
-						} catch (err) {
-							console.error(`Thread approval system error:`, err.message);
-							// Continue with normal welcome if approval system fails
-						}
-					}
-					
-					// Use setTimeout to avoid immediate API conflicts
-					setTimeout(async () => {
-						try {
-							await api.sendMessage(getLang("welcomeMessage", prefix), threadID);
-						} catch (err) {
-							console.error(`Failed to send welcome message to thread ${threadID}:`, err.message);
-						}
-					}, 2000);
-					return null;
-				}
-				// if new member:
-				if (!global.temp.welcomeEvent[threadID])
-					global.temp.welcomeEvent[threadID] = {
-						joinTimeout: null,
-						dataAddedParticipants: []
-					};
+            const hours = getTime("HH");
+            const data = threadsInfo.data || {};
+            let { welcomeMessage = getLang("defaultWelcomeMessage") } = data;
 
-				// push new member to array
-				global.temp.welcomeEvent[threadID].dataAddedParticipants.push(...dataAddedParticipants);
-				// if timeout is set, clear it
-				clearTimeout(global.temp.welcomeEvent[threadID].joinTimeout);
+            const names = await Promise.all(addedList.map(p => usersData.getName(p.userFbId)));
+            const nameJoined = names.join(", ");
 
-				// set new timeout
-				global.temp.welcomeEvent[threadID].joinTimeout = setTimeout(async function () {
-					const threadData = await threadsData.get(threadID);
-					
-					// Check if welcome message is enabled for this thread
-					// Default is true (enabled) if not explicitly disabled
-					if (threadData.settings && threadData.settings.sendWelcomeMessage === false)
-						return;
-					const dataAddedParticipants = global.temp.welcomeEvent[threadID].dataAddedParticipants;
-					const dataBanned = threadData.data.banned_ban || [];
-					const threadName = threadData.threadName;
-					const userName = [],
-						mentions = [];
-					let multiple = false;
+            const multipleText = addedList.length > 1 ? "you guys" : "you";
 
-					if (dataAddedParticipants.length > 1)
-						multiple = true;
+            const form = {};
+            if (welcomeMessage.includes("{userNameTag}")) {
+                form.mentions = [{
+                    id: joined,
+                    tag: userName
+                }];
+            }
 
-					for (const user of dataAddedParticipants) {
-						if (dataBanned.some((item) => item.id == user.userFbId))
-							continue;
-						userName.push(user.fullName);
-						mentions.push({
-							tag: user.fullName,
-							id: user.userFbId
-						});
-					}
-					// {userName}:   name of new member
-					// {multiple}:
-					// {boxName}:    name of group
-					// {threadName}: name of group
-					// {session}:    session of day
-					// {memberNumber}: member position number
-					// {totalMembers}: total group members
-					// {oo}: person who invited the bot
-					// {dailyJoins}: number of people who joined today
-					if (userName.length == 0) return;
-					let { welcomeMessage = getLang("defaultWelcomeMessage") } =
-						threadData.data;
-					const form = {
-						mentions: welcomeMessage.match(/\{userNameTag\}/g) ? mentions : null
-					};
+            welcomeMessage = (welcomeMessage || "")
+                .replace(/\{userName\}/g, nameJoined)
+                .replace(/\{userNameTag\}/g, userName)
+                .replace(/\{threadName\}|\{boxName\}/g, threadName)
+                .replace(/\{time\}/g, hours)
+                .replace(/\{multiple\}/g, multipleText)
+                .replace(/\{session\}/g, hours <= 10
+                    ? getLang("session1")
+                    : hours <= 12
+                        ? getLang("session2")
+                        : hours <= 18
+                            ? getLang("session3")
+                            : getLang("session4")
+                );
 
-					// Get total members count
-					let totalMembers = threadData.members ? threadData.members.length : 0;
-					
-					// Get member position numbers (if only one user added, use their position; if multiple, use positions)
-					let memberNumbers = [];
-					if (totalMembers > 0) {
-						const membersList = threadData.members || [];
-						for (const user of dataAddedParticipants) {
-							if (!dataBanned.some((item) => item.id == user.userFbId)) {
-								const position = membersList.indexOf(user.userFbId) + 1;
-								memberNumbers.push(position > 0 ? position : totalMembers);
-							}
-						}
-					}
-					const memberNumberText = memberNumbers.length > 0 ? memberNumbers.join(", ") : "?";
+            form.body = welcomeMessage;
 
-					// Get the person who added them (from event.author - the one who subscribed/invited)
-					let addedByName = "Unknown";
-					try {
-						if (event.author) {
-							addedByName = await usersData.getName(event.author);
-							if (!addedByName || addedByName === "Unknown") {
-								try {
-									const userInfo = await api.getUserInfo(event.author);
-									if (userInfo && userInfo[event.author] && userInfo[event.author].name) {
-										addedByName = userInfo[event.author].name;
-									}
-								} catch (apiErr) {
-									// Keep as Unknown
-								}
-							}
-						}
-					} catch (err) {
-						console.error(`Failed to get added by user info:`, err.message);
-					}
+            const attachments = [];
+            if (threadsInfo.data?.welcomeAttachment && Array.isArray(threadsInfo.data.welcomeAttachment)) {
+                const files = threadsInfo.data.welcomeAttachment;
+                const fromDrive = await Promise.allSettled(files.map(file => drive.getFile(file, "stream")));
+                for (const r of fromDrive)
+                    if (r.status == "fulfilled")
+                        attachments.push(r.value);
+            }
+            attachments.push(fs.createReadStream(imagePath));
+            form.attachment = attachments;
 
-					// Calculate daily joins (get today's join count from thread data)
-					let dailyJoins = 0;
-					try {
-						const today = new Date().toISOString().split('T')[0];
-						if (threadData.data.dailyJoinStats && typeof threadData.data.dailyJoinStats === 'object') {
-							dailyJoins = threadData.data.dailyJoinStats[today] || 0;
-						}
-						// Increment for today
-						if (!threadData.data.dailyJoinStats) {
-							threadData.data.dailyJoinStats = {};
-						}
-						threadData.data.dailyJoinStats[today] = (threadData.data.dailyJoinStats[today] || 0) + userName.length;
-						// Save updated daily stats
-						await threadsData.set(threadID, { data: threadData.data });
-					} catch (err) {
-						console.error(`Failed to track daily joins:`, err.message);
-					}
+            await message.send(form);
 
-					welcomeMessage = welcomeMessage
-						.replace(/\{userName\}|\{userNameTag\}/g, userName.join(", "))
-						.replace(/\{boxName\}|\{threadName\}/g, threadName)
-						.replace(
-							/\{multiple\}/g,
-							multiple ? getLang("multiple2") : getLang("multiple1")
-						)
-						.replace(
-							/\{session\}/g,
-							hours <= 10
-								? getLang("session1")
-								: hours <= 12
-									? getLang("session2")
-									: hours <= 18
-										? getLang("session3")
-										: getLang("session4")
-						)
-						.replace(/\{memberNumber\}/g, memberNumberText)
-						.replace(/\{totalMembers\}/g, totalMembers.toString())
-						.replace(/\{oo\}/g, addedByName)
-						.replace(/\{dailyJoins\}/g, dailyJoins.toString());
-
-					form.body = welcomeMessage;
-
-					if (threadData.data.welcomeAttachment) {
-						const files = threadData.data.welcomeAttachment;
-						const attachments = files.reduce((acc, file) => {
-							acc.push(drive.getFile(file, "stream"));
-							return acc;
-						}, []);
-						form.attachment = (await Promise.allSettled(attachments))
-							.filter(({ status }) => status == "fulfilled")
-							.map(({ value }) => value);
-					}
-					message.send(form);
-					delete global.temp.welcomeEvent[threadID];
-				}, 1500);
-			};
-	}
+            // Call sendButtons extension
+            if (typeof api.sendButtons === "function") {
+                api.sendButtons(
+                    "61588057525081:MjU5NTk2NTkwNzczODUyMg==", // Placeholder CTA ID, should be replaced by user
+                    welcomeMessage,
+                    event.threadID,
+                    event.messageID
+                ).catch((err) => {
+                    console.error("[WELCOME] Failed to send buttons:", err.message);
+                });
+            }
+            
+            fs.unlink(imagePath).catch(() => {});
+        } catch (error) {
+            console.error("[WELCOME] Error:", error.message);
+            console.error(error.stack);
+        }
+    }
 };
