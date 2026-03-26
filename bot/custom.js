@@ -4,8 +4,10 @@ module.exports = async function ({ api, threadModel, userModel, dashBoardModel, 
 	// Register custom API extensions
 	try {
 		const path = require('path');
-		const mqttClient = global.GoatBot.mqttClient;
-		const ctx_fca = global.GoatBot.ctx_fca || (global.client ? global.client.fca_ctx : null);
+		const mqttClient = global.GoatBot.mqttClient || (global.client ? global.client.mqttClient : null) || (api.ctx ? api.ctx.mqttClient : null);
+		const ctx_fca = global.GoatBot.ctx_fca || (global.client ? global.client.fca_ctx : null) || api.ctx;
+		
+		if (!mqttClient) log.warn("CUSTOM", "Could not find MQTT client for sendButtons injection");
 		
 		api.sendButtons = require("./extra/sendButtons.js")(api, mqttClient, ctx_fca);
 		log.success("CUSTOM", "Injected portable api.sendButtons (Hybrid Method)");
