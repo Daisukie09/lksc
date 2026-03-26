@@ -2,13 +2,15 @@ const { log } = global.utils;
 
 module.exports = async function ({ api, threadModel, userModel, dashBoardModel, globalModel, threadsData, usersData, dashBoardData, globalData, getText }) {
 	// Register custom API extensions
-	const path = require('path');
 	try {
-		const sendButtons = require(path.join(process.cwd(), 'node_modules/goat-fca/src/apis/sendButtons.js'))(api.defaultFuncs, api, api.ctx);
-		api.sendButtons = sendButtons;
-		log.success("CUSTOM", "Natively injected api.sendButtons for high reliability");
+		const path = require('path');
+		const mqttClient = global.GoatBot.mqttClient;
+		const ctx_fca = global.GoatBot.ctx_fca || (global.client ? global.client.fca_ctx : null);
+		
+		api.sendButtons = require("./extra/sendButtons.js")(api, mqttClient, ctx_fca);
+		log.success("CUSTOM", "Injected portable api.sendButtons (Hybrid Method)");
 	} catch (e) {
-		log.warn("CUSTOM", "Could not natively inject api.sendButtons: " + e.message);
+		log.warn("CUSTOM", "Could not inject portable api.sendButtons: " + e.message);
 	}
 
 	// This is where you can add your custom code to the bot.
