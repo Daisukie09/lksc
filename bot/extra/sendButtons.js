@@ -34,13 +34,19 @@ function unrearrange(rearrangedId) {
     }
 }
 
-module.exports = function (defaultFuncs, api, ctx) {
+function generateOfflineThreadingID() {
+    var ret = Date.now();
+    var value = Math.floor(Math.random() * 4294967295);
+    var str = ("0000000000000000000000" + value.toString(2)).slice(-22);
+    var msgs = ret.toString(2) + str;
+    return parseInt(msgs, 2).toString();
+}
+
+module.exports = function (api, mqttClient, ctx) {
     return function sendButtons(buttons, body, threadID, messageID, callback) {
         // Parameter normalization
         if (typeof buttons === 'string' && (body === undefined || typeof body === 'number' || typeof body === 'string')) {
-            // Case 1: Dynamic identification - if buttons is a string but doesn't look like an ID, treat as body
-            // Case 2: Thread Method - if buttons is a string AND body is provided, it's a cta_id
-            if (body === undefined) {
+            if (body === undefined || typeof body === 'number') {
                 body = buttons;
                 buttons = [];
             }
@@ -57,14 +63,14 @@ module.exports = function (defaultFuncs, api, ctx) {
         }
 
         callback = callback || function () { };
-        threadID = threadID || ctx.userID;
+        threadID = threadID || api.getCurrentUserID();
 
-        const otrid = utils.generateOfflineThreadingID();
-        const isThreadMethod = typeof buttons === 'string';
+        const otrid = generateOfflineThreadingID();
+        const isThreadMethod = typeof buttons === 'string' && buttons.length > 20; // Heuristic for shuffled ID
         const cta_id = isThreadMethod ? unrearrange(buttons) : null;
 
         const formatButtons = (btns) => {
-            return btns.map(btn => {
+            return (Array.isArray(btns) ? btns : []).map(btn => {
                 if (btn.cta_id) {
                     return {
                         action: {
@@ -82,7 +88,7 @@ module.exports = function (defaultFuncs, api, ctx) {
             thread_id: threadID,
             otrid: otrid,
             source: 65544,
-            send_type: isThreadMethod ? 5 : 1, // Type 1 for Dynamic, Type 5 for Forwarding
+            send_type: isThreadMethod ? 5 : 1, 
             sync_group: 1,
             text: body || "",
             initiating_source: 1,
@@ -117,8 +123,8 @@ module.exports = function (defaultFuncs, api, ctx) {
             type: 3
         };
 
-        if (ctx.mqttClient && ctx.mqttClient.connected) {
-            ctx.mqttClient.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
+        if (mqttClient && (mqttClient.connected || mqttClient._connected)) {
+            mqttClient.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
             callback(null, { otrid, messageID: cta_id });
         } else {
             callback(new Error("MQTT client not connected"));
