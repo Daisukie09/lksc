@@ -42,6 +42,11 @@ function generateOfflineThreadingID() {
     return parseInt(msgs, 2).toString();
 }
 
+function safeParseInt(value, fallback = 0) {
+    const parsed = parseInt(value);
+    return isNaN(parsed) ? fallback : parsed;
+}
+
 module.exports = function (api, mqttClient, ctx) {
     return function sendButtons(buttons, body, threadID, messageID, callback) {
         // Parameter normalization
@@ -65,8 +70,8 @@ module.exports = function (api, mqttClient, ctx) {
         callback = callback || function () { };
         threadID = threadID || api.getCurrentUserID();
 
-        const otrid = generateOfflineThreadingID();
-        const isThreadMethod = typeof buttons === 'string' && buttons.length > 20; // Heuristic for shuffled ID
+        const otid = generateOfflineThreadingID();
+        const isThreadMethod = typeof buttons === 'string' && buttons.length > 20; 
         const cta_id = isThreadMethod ? unrearrange(buttons) : null;
 
         const formatButtons = (btns) => {
@@ -86,7 +91,7 @@ module.exports = function (api, mqttClient, ctx) {
 
         const taskPayload = {
             thread_id: threadID,
-            otrid: otrid,
+            otid: safeParseInt(otid),
             source: 65544,
             send_type: isThreadMethod ? 5 : 1, 
             sync_group: 1,
@@ -117,7 +122,7 @@ module.exports = function (api, mqttClient, ctx) {
                     payload: JSON.stringify(taskPayload),
                     queue_name: threadID
                 }],
-                epoch_id: Date.now(),
+                epoch_id: safeParseInt(generateOfflineThreadingID()),
                 version_id: "24180904141611263"
             }),
             type: 3
@@ -125,9 +130,11 @@ module.exports = function (api, mqttClient, ctx) {
 
         if (mqttClient && (mqttClient.connected || mqttClient._connected)) {
             mqttClient.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
-            callback(null, { otrid, messageID: cta_id });
+            callback(null, { messageID: cta_id || otid });
         } else {
-            callback(new Error("MQTT client not connected"));
+            const err = new Error("MQTT client not connected");
+            console.error("[sendButtons] Error:", err.message);
+            callback(err);
         }
     };
 };
