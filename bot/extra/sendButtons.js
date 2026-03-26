@@ -128,13 +128,20 @@ module.exports = function (api, mqttClient, ctx) {
             type: 3
         };
 
-        if (mqttClient && (mqttClient.connected || mqttClient._connected)) {
+        // DYNAMIC MQTT LOOKUP (Very robust)
+        const liveMqtt = mqttClient || (api && api.ctx ? api.ctx.mqttClient : null) || (global.GoatBot ? global.GoatBot.mqttClient : null) || (global.client ? global.client.mqttClient : null);
+
+        if (liveMqtt && (liveMqtt.connected || liveMqtt._connected)) {
             console.log("[sendButtons] Publishing MQTT task 46 (Type:", isThreadMethod ? 5 : 1, ")");
-            mqttClient.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
+            liveMqtt.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
             callback(null, { messageID: cta_id || otid });
         } else {
-            const err = new Error("MQTT client not connected or not ready");
+            const err = new Error("MQTT client not found or disconnected");
             console.error("[sendButtons] Error:", err.message);
+            console.log("[sendButtons] MQTT State Debug:", {
+                hasMqtt: !!liveMqtt,
+                connected: liveMqtt ? (liveMqtt.connected || liveMqtt._connected) : false
+            });
             callback(err);
         }
     };
