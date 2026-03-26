@@ -1,3 +1,4 @@
+const utils = require('../utils');
 const SHUFFLE_SEED = 42;
 
 function generateShufflePattern(length) {
@@ -21,7 +22,7 @@ function generateReversePattern(shufflePattern) {
 
 function unrearrange(rearrangedId) {
     try {
-        if (!rearrangedId || typeof rearrangedId !== "string") return null;
+        if (!rearrangedId || typeof rearrangedId !== "string" || rearrangedId.length < 10) return rearrangedId;
         const pattern = generateShufflePattern(rearrangedId.length);
         const reversePattern = generateReversePattern(pattern);
         const original = new Array(rearrangedId.length);
@@ -30,28 +31,14 @@ function unrearrange(rearrangedId) {
         }
         return original.join("");
     } catch (err) {
-        return null;
+        return rearrangedId;
     }
 }
 
-function generateOfflineThreadingID() {
-    var ret = Date.now();
-    var value = Math.floor(Math.random() * 4294967295);
-    var str = ("0000000000000000000000" + value.toString(2)).slice(-22);
-    var msgs = ret.toString(2) + str;
-    return parseInt(msgs, 2).toString();
-}
-
-function safeParseInt(value, fallback = 0) {
-    const parsed = parseInt(value);
-    return isNaN(parsed) ? fallback : parsed;
-}
-
-module.exports = function (api, mqttClient, ctx) {
+module.exports = function (defaultFuncs, api, ctx) {
     return function sendButtons(buttons, body, threadID, messageID, callback) {
-        // Parameter normalization
         if (typeof buttons === 'string' && (body === undefined || typeof body === 'number' || typeof body === 'string')) {
-            if (body === undefined || typeof body === 'number') {
+            if (body === undefined) {
                 body = buttons;
                 buttons = [];
             }
@@ -68,14 +55,14 @@ module.exports = function (api, mqttClient, ctx) {
         }
 
         callback = callback || function () { };
-        threadID = threadID || api.getCurrentUserID();
+        threadID = threadID || ctx.userID;
 
-        const otid = generateOfflineThreadingID();
-        const isThreadMethod = typeof buttons === 'string' && buttons.length > 20; 
+        const otrid = utils.generateOfflineThreadingID();
+        const isThreadMethod = typeof buttons === 'string';
         const cta_id = isThreadMethod ? unrearrange(buttons) : null;
 
         const formatButtons = (btns) => {
-            return (Array.isArray(btns) ? btns : []).map(btn => {
+            return btns.map(btn => {
                 if (btn.cta_id) {
                     return {
                         action: {
@@ -91,7 +78,7 @@ module.exports = function (api, mqttClient, ctx) {
 
         const taskPayload = {
             thread_id: threadID,
-            otid: safeParseInt(otid),
+            otrid: otrid,
             source: 65544,
             send_type: isThreadMethod ? 5 : 1, 
             sync_group: 1,
@@ -122,27 +109,25 @@ module.exports = function (api, mqttClient, ctx) {
                     payload: JSON.stringify(taskPayload),
                     queue_name: threadID
                 }],
-                epoch_id: safeParseInt(generateOfflineThreadingID()),
+                epoch_id: Date.now(),
                 version_id: "24180904141611263"
             }),
             type: 3
         };
 
-        // DYNAMIC MQTT LOOKUP (Very robust)
-        const liveMqtt = mqttClient || (api && api.ctx ? api.ctx.mqttClient : null) || (global.GoatBot ? global.GoatBot.mqttClient : null) || (global.client ? global.client.mqttClient : null);
+        const mqtt = ctx.mqttClient || api.mqttClient || (global.client ? global.client.mqttClient : null);
 
-        if (liveMqtt && (liveMqtt.connected || liveMqtt._connected)) {
-            console.log("[sendButtons] Publishing MQTT task 46 (Type:", isThreadMethod ? 5 : 1, ")");
-            liveMqtt.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
-            callback(null, { messageID: cta_id || otid });
+        if (mqtt && mqtt.connected) {
+            mqtt.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
+            callback(null, { otrid, messageID: cta_id });
         } else {
-            const err = new Error("MQTT client not found or disconnected");
-            console.error("[sendButtons] Error:", err.message);
-            console.log("[sendButtons] MQTT State Debug:", {
-                hasMqtt: !!liveMqtt,
-                connected: liveMqtt ? (liveMqtt.connected || liveMqtt._connected) : false
+            console.error("[sendButtons] MQTT not connected. State:", {
+                hasCtxMqtt: !!ctx.mqttClient,
+                hasApiMqtt: !!api.mqttClient,
+                connected: mqtt ? mqtt.connected : false
             });
-            callback(err);
+            callback(new Error("MQTT client not connected"));
         }
     };
 };
+
