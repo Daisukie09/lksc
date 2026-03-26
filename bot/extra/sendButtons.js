@@ -35,8 +35,22 @@ function unrearrange(rearrangedId) {
     }
 }
 
+function generateOfflineThreadingID() {
+    var ret = Date.now();
+    var value = Math.floor(Math.random() * 4294967295);
+    var str = ("0000000000000000000000" + value.toString(2)).slice(-22);
+    var msgs = ret.toString(2) + str;
+    return parseInt(msgs, 2).toString();
+}
+
 module.exports = function (defaultFuncs, api, ctx) {
     return function sendButtons(buttons, body, threadID, messageID, callback) {
+        let resolveFunc, rejectFunc;
+        const returnPromise = new Promise((resolve, reject) => {
+            resolveFunc = resolve;
+            rejectFunc = reject;
+        });
+
         if (typeof buttons === 'string' && (body === undefined || typeof body === 'number' || typeof body === 'string')) {
             if (body === undefined) {
                 body = buttons;
@@ -54,20 +68,34 @@ module.exports = function (defaultFuncs, api, ctx) {
             threadID = null;
         }
 
-        callback = callback || function () { };
-        threadID = threadID || ctx.userID;
+        const finalCallback = (err, data) => {
+            if (err) {
+                if (typeof callback === 'function') callback(err);
+                rejectFunc(err);
+            } else {
+                if (typeof callback === 'function') callback(null, data);
+                resolveFunc(data);
+            }
+        };
 
-        const otrid = utils.generateOfflineThreadingID();
+        const targetThreadID = threadID || (api && api.getCurrentUserID ? api.getCurrentUserID() : (ctx ? ctx.userID : null));
+        if (!targetThreadID) {
+            const err = new Error("Missing threadID");
+            finalCallback(err);
+            return returnPromise;
+        }
+
+        const otrid = generateOfflineThreadingID();
         const isThreadMethod = typeof buttons === 'string';
         const cta_id = isThreadMethod ? unrearrange(buttons) : null;
 
         const formatButtons = (btns) => {
-            return btns.map(btn => {
+            return (Array.isArray(btns) ? btns : []).map(btn => {
                 if (btn.cta_id) {
                     return {
                         action: {
                             cta_id: btn.cta_id,
-                            type: btn.cta_id.startsWith('http') ? 2 : 1
+                            type: String(btn.cta_id).startsWith('http') ? 2 : 1
                         },
                         title: btn.title
                     };
@@ -77,7 +105,7 @@ module.exports = function (defaultFuncs, api, ctx) {
         };
 
         const taskPayload = {
-            thread_id: threadID,
+            thread_id: targetThreadID,
             otrid: otrid,
             source: 65544,
             send_type: isThreadMethod ? 5 : 1, 
@@ -107,7 +135,7 @@ module.exports = function (defaultFuncs, api, ctx) {
                 tasks: [{
                     label: "46",
                     payload: JSON.stringify(taskPayload),
-                    queue_name: threadID
+                    queue_name: targetThreadID
                 }],
                 epoch_id: Date.now(),
                 version_id: "24180904141611263"
@@ -115,19 +143,21 @@ module.exports = function (defaultFuncs, api, ctx) {
             type: 3
         };
 
-        const mqtt = ctx.mqttClient || api.mqttClient || (global.client ? global.client.mqttClient : null);
+        const mqtt = (ctx && ctx.mqttClient) 
+                  || (api && api.ctx ? api.ctx.mqttClient : null) 
+                  || (global.client ? global.client.mqttClient : null) 
+                  || (global.GoatBot ? global.GoatBot.mqttClient : null)
+                  || (global.GoatBot?.Listening?.mqttClient);
 
-        if (mqtt && mqtt.connected) {
+        if (mqtt && (mqtt.connected || mqtt._connected)) {
             mqtt.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
-            callback(null, { otrid, messageID: cta_id });
+            finalCallback(null, { messageID: cta_id || otrid, otrid });
         } else {
-            console.error("[sendButtons] MQTT not connected. State:", {
-                hasCtxMqtt: !!ctx.mqttClient,
-                hasApiMqtt: !!api.mqttClient,
-                connected: mqtt ? mqtt.connected : false
-            });
-            callback(new Error("MQTT client not connected"));
+            const err = new Error("MQTT client not found or disconnected");
+            console.error("[sendButtons] Error:", err.message);
+            finalCallback(err);
         }
+
+        return returnPromise;
     };
 };
-
