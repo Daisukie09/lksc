@@ -129,10 +129,11 @@ module.exports = function (api, mqttClient, ctx) {
         };
 
         if (mqttClient && (mqttClient.connected || mqttClient._connected)) {
+            console.log("[sendButtons] Publishing MQTT task 46 (Type:", isThreadMethod ? 5 : 1, ")");
             mqttClient.publish('/ls_req', JSON.stringify(payload), { qos: 1, retain: false });
             callback(null, { messageID: cta_id || otid });
         } else {
-            const err = new Error("MQTT client not connected");
+            const err = new Error("MQTT client not connected or not ready");
             console.error("[sendButtons] Error:", err.message);
             callback(err);
         }
